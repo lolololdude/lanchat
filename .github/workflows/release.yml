@@ -1,7 +1,12 @@
 name: release
 on:
-  push:
-    tags: ['v*']
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version number, for example 1.0.6
+        required: true
 permissions:
   contents: write
 jobs:
@@ -9,9 +14,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: bash build_deb.sh "${GITHUB_REF_NAME#v}"
+      - name: Get version
+        run: |
+          RAW="${{ inputs.version || github.event.release.tag_name }}"
+          echo "VER=${RAW#v}" >> "$GITHUB_ENV"
+      - run: bash build_deb.sh "$VER"
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.VER }}
           files: lanchat_*_all.deb
   windows:
     runs-on: windows-latest
@@ -20,10 +30,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Get version
+        shell: bash
+        run: |
+          RAW="${{ inputs.version || github.event.release.tag_name }}"
+          echo "VER=${RAW#v}" >> "$GITHUB_ENV"
       - name: Build exe, zip, and winget manifests
         shell: bash
         run: |
-          VER="${GITHUB_REF_NAME#v}"
           OWNER="${GITHUB_REPOSITORY_OWNER}"
           pip install pyinstaller
           pyinstaller --onefile --name lanchat lanchat.py
@@ -38,6 +52,7 @@ jobs:
           powershell -NoProfile -Command "Compress-Archive -Path $D/* -DestinationPath winget-manifests.zip"
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.VER }}
           files: |
             lanchat-*-windows-x64.zip
             winget-manifests.zip
