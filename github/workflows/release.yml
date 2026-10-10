@@ -1,0 +1,43 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash build_deb.sh "${GITHUB_REF_NAME#v}"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: lanchat_*_all.deb
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build exe, zip, and winget manifests
+        shell: bash
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          OWNER="${GITHUB_REPOSITORY_OWNER}"
+          pip install pyinstaller
+          pyinstaller --onefile --name lanchat lanchat.py
+          ZIP="lanchat-${VER}-windows-x64.zip"
+          powershell -NoProfile -Command "Compress-Archive -Path dist/lanchat.exe -DestinationPath $ZIP"
+          SHA=$(sha256sum "$ZIP" | cut -d' ' -f1 | tr 'a-f' 'A-F')
+          D="manifests/${OWNER}.LanChat"; mkdir -p "$D"
+          for f in winget-template/*.yaml; do
+            name=$(basename "$f" | sed "s/^PACKAGE/${OWNER}.LanChat/")
+            sed -e "s/__OWNER__/${OWNER}/g" -e "s/__VERSION__/${VER}/g" -e "s/__SHA256__/${SHA}/g" "$f" > "$D/$name"
+          done
+          powershell -NoProfile -Command "Compress-Archive -Path $D/* -DestinationPath winget-manifests.zip"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            lanchat-*-windows-x64.zip
+            winget-manifests.zip
