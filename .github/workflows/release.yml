@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version number, for example 1.0.6
+        description: Version number, for example 1.0.9
         required: true
 permissions:
   contents: write
@@ -35,20 +35,54 @@ jobs:
         run: |
           RAW="${{ inputs.version || github.event.release.tag_name }}"
           echo "VER=${RAW#v}" >> "$GITHUB_ENV"
-      - name: Build exe, zip, and winget manifests
+      - name: Build exe and zip
+        shell: bash
+        run: |
+          pip install pyinstaller
+          pyinstaller --onefile --name lanchat lanchat.py
+          powershell -NoProfile -Command "Compress-Archive -Path dist/lanchat.exe -DestinationPath lanchat-${VER}-windows-x64.zip"
+      - name: Write winget manifests
         shell: bash
         run: |
           OWNER="${GITHUB_REPOSITORY_OWNER}"
-          pip install pyinstaller
-          pyinstaller --onefile --name lanchat lanchat.py
-          ZIP="lanchat-${VER}-windows-x64.zip"
-          powershell -NoProfile -Command "Compress-Archive -Path dist/lanchat.exe -DestinationPath $ZIP"
-          SHA=$(sha256sum "$ZIP" | cut -d' ' -f1 | tr 'a-f' 'A-F')
-          D="manifests/${OWNER}.LanChat"; mkdir -p "$D"
-          for f in winget-template/*.yaml; do
-            name=$(basename "$f" | sed "s/^PACKAGE/${OWNER}.LanChat/")
-            sed -e "s/__OWNER__/${OWNER}/g" -e "s/__VERSION__/${VER}/g" -e "s/__SHA256__/${SHA}/g" "$f" > "$D/$name"
-          done
+          SHA=$(sha256sum "lanchat-${VER}-windows-x64.zip" | cut -d' ' -f1 | tr 'a-f' 'A-F')
+          D="manifests/${OWNER}.LanChat"
+          mkdir -p "$D"
+          cat > "$D/${OWNER}.LanChat.yaml" << MANIFEST
+          PackageIdentifier: ${OWNER}.LanChat
+          PackageVersion: ${VER}
+          DefaultLocale: en-US
+          ManifestType: version
+          ManifestVersion: 1.6.0
+          MANIFEST
+          cat > "$D/${OWNER}.LanChat.installer.yaml" << MANIFEST
+          PackageIdentifier: ${OWNER}.LanChat
+          PackageVersion: ${VER}
+          InstallerType: zip
+          NestedInstallerType: portable
+          NestedInstallerFiles:
+            - RelativeFilePath: lanchat.exe
+              PortableCommandAlias: lanchat
+          Installers:
+            - Architecture: x64
+              InstallerUrl: https://github.com/${OWNER}/lanchat/releases/download/v${VER}/lanchat-${VER}-windows-x64.zip
+              InstallerSha256: ${SHA}
+          ManifestType: installer
+          ManifestVersion: 1.6.0
+          MANIFEST
+          cat > "$D/${OWNER}.LanChat.locale.en-US.yaml" << MANIFEST
+          PackageIdentifier: ${OWNER}.LanChat
+          PackageVersion: ${VER}
+          PackageLocale: en-US
+          Publisher: ${OWNER}
+          PackageName: LanChat
+          PackageUrl: https://github.com/${OWNER}/lanchat
+          License: MIT
+          ShortDescription: Minimal terminal chat for two machines on the same network.
+          Moniker: lanchat
+          ManifestType: defaultLocale
+          ManifestVersion: 1.6.0
+          MANIFEST
           powershell -NoProfile -Command "Compress-Archive -Path $D/* -DestinationPath winget-manifests.zip"
       - uses: softprops/action-gh-release@v2
         with:
