@@ -1,0 +1,13 @@
+PackageIdentifier: __OWNER__.LanChat
+PackageVersion: __VERSION__
+InstallerType: zip
+NestedInstallerType: portable
+NestedInstallerFiles:
+  - RelativeFilePath: lanchat.exe
+    PortableCommandAlias: lanchat
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/__OWNER__/lanchat/releases/download/v__VERSION__/lanchat-__VERSION__-windows-x64.zip
+    InstallerSha256: __SHA256__
+ManifestType: installer
+ManifestVersion: 1.6.0
