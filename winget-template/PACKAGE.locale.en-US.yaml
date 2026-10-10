@@ -1,0 +1,11 @@
+PackageIdentifier: __OWNER__.LanChat
+PackageVersion: __VERSION__
+PackageLocale: en-US
+Publisher: __OWNER__
+PackageName: LanChat
+PackageUrl: https://github.com/__OWNER__/lanchat
+License: MIT
+ShortDescription: Minimal terminal chat for two machines on the same network.
+Moniker: lanchat
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0
